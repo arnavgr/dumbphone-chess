@@ -1,6 +1,5 @@
 const jsChessEngine = require('js-chess-engine');
 
-// Look for local images in the public/images folder
 const getPieceImg = (code) => {
     const filenames = {
         'K': 'wK.png', 'Q': 'wQ.png', 'R': 'wR.png', 'B': 'wB.png', 'N': 'wN.png', 'P': 'wP.png', 
@@ -8,14 +7,14 @@ const getPieceImg = (code) => {
     };
     if (!filenames[code]) return '&nbsp;&nbsp;';
     
-    // We use an absolute path so Opera Mini doesn't get confused during proxy compression
-    return `<img src="/images/${filenames[code]}" width="24" height="24" border="0" style="display:block; margin:auto; border:none; outline:none;" alt="${code}">`;
+    // Explicit sizing without CSS overrides, keeping border="0" to stop ugly blue link boxes
+    return `<img src="/images/${filenames[code]}" width="28" height="28" border="0" alt="${code}">`;
 };
 
 module.exports = (req, res) => {
     let { fen, selected, move, diff, color } = req.query;
     diff = parseInt(diff) || 1;
-    color = color === 'b' ? 'b' : 'w'; // Default to White
+    color = color === 'b' ? 'b' : 'w'; 
 
     if (fen) fen = fen.replace(/_/g, ' ');
 
@@ -24,15 +23,13 @@ module.exports = (req, res) => {
 
     try {
         game = new jsChessEngine.Game(fen || undefined);
-        
-        // If it's a brand new game and the player chose Black, the AI moves first
         if (!fen && color === 'b') {
             game.aiMove(diff);
         }
     } catch (e) {
         game = new jsChessEngine.Game();
         message = "Game reset due to corrupted FEN.";
-        if (color === 'b') game.aiMove(diff); // Ensure AI moves first on a reset to Black
+        if (color === 'b') game.aiMove(diff); 
     }
 
     if (move) {
@@ -81,9 +78,9 @@ module.exports = (req, res) => {
         validMoves = allLegalMoves[selected] || [];
     }
 
-    let htmlBoard = '<table style="border-collapse: collapse; margin: 10px auto; border: 2px solid #333;">';
+    // FIX 1: Use HTML width="98%" instead of CSS width, so old browsers stretch it properly
+    let htmlBoard = '<table width="98%" border="1" style="border-collapse: collapse; margin: 5px auto; border: 2px solid #333; max-width: 400px;">';
     
-    // Flip the board rendering based on player color
     const ranks = color === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
     const files = color === 'w' ? [65, 66, 67, 68, 69, 70, 71, 72] : [72, 71, 70, 69, 68, 67, 66, 65];
 
@@ -101,18 +98,19 @@ module.exports = (req, res) => {
             if (validMoves.includes(square)) bgColor = '#7BDE7B'; 
 
             let cellContent = piece ? getPieceImg(piece) : '';
-            
-            // Check if the piece belongs to the current player
             const isPlayerPiece = piece && (color === 'w' ? piece === piece.toUpperCase() : piece === piece.toLowerCase());
             
+            // FIX 2: Removed display:block CSS. Use standard inline links. 
+            // Replaced CSS circles with standard HTML bullets (&bull;) for dumbphone focus engines.
             if (validMoves.includes(square)) {
-                let targetImg = piece ? getPieceImg(piece) : '<div style="width:12px; height:12px; background:rgba(0,0,0,0.3); border-radius:50%; margin:auto;"></div>';
-                cellContent = `<a href="?fen=${safeFen}&move=${selected}-${square}&diff=${diff}&color=${color}" style="display:block; width:100%; height:100%; text-decoration:none;">${targetImg}</a>`;
+                let targetImg = piece ? getPieceImg(piece) : '<b style="color:#222; font-size:24px; line-height:28px;">&bull;</b>';
+                cellContent = `<a href="?fen=${safeFen}&move=${selected}-${square}&diff=${diff}&color=${color}">${targetImg}</a>`;
             } else if (isPlayerPiece) {
-                cellContent = `<a href="?fen=${safeFen}&selected=${square}&diff=${diff}&color=${color}" style="display:block; width:100%; height:100%; text-decoration:none;">${getPieceImg(piece)}</a>`;
+                cellContent = `<a href="?fen=${safeFen}&selected=${square}&diff=${diff}&color=${color}">${getPieceImg(piece)}</a>`;
             }
 
-            htmlBoard += `<td style="width: 32px; height: 32px; padding: 0; text-align: center; vertical-align: middle; background-color: ${bgColor}; border: 1px solid #666;">${cellContent}</td>`;
+            // FIX 3: HTML alignment and relative 12.5% width
+            htmlBoard += `<td width="12.5%" align="center" valign="middle" style="height: 36px; padding: 0; background-color: ${bgColor}; border: 1px solid #666;">${cellContent}</td>`;
         }
         htmlBoard += '</tr>';
     }
@@ -124,24 +122,25 @@ module.exports = (req, res) => {
         <html>
         <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <meta name="HandheldFriendly" content="true">
+            <meta name="MobileOptimized" content="320">
             <title>Opera Chess</title>
             <style>
-                body { font-family: sans-serif; text-align: center; background: #eee; margin: 0; padding: 5px; }
+                body { font-family: sans-serif; text-align: center; background: #eee; margin: 0; padding: 2px; }
                 a { color: #000; text-decoration: none; }
-                .diff-controls { margin-top: 15px; font-size: 14px; }
+                .diff-controls { margin-top: 10px; font-size: 16px; }
                 .diff-controls a { text-decoration: underline; color: #0066cc; }
                 .diff-controls a.active { font-weight: bold; text-decoration: none; color: #000; }
-                img { display: block; border: 0; outline: none; }
             </style>
         </head>
         <body>
-            <h4>Opera Chess</h4>
-            <p style="color: #c00; font-weight: bold; font-size: 14px;">${message}</p>
+            <h4 style="margin: 5px 0;">Opera Chess</h4>
+            <p style="color: #c00; font-weight: bold; font-size: 16px; margin: 5px 0;">${message}</p>
             
             ${htmlBoard}
 
-            ${selected ? `<p><a href="?fen=${safeFen}&diff=${diff}&color=${color}" style="color:red;">[ Cancel Selection ]</a></p>` : '<p>&nbsp;</p>'}
+            ${selected ? `<p style="margin: 5px 0;"><a href="?fen=${safeFen}&diff=${diff}&color=${color}" style="color:red; font-size: 16px;">[ Cancel Selection ]</a></p>` : '<p style="margin: 5px 0;">&nbsp;</p>'}
 
             <div class="diff-controls">
                 <p style="margin-bottom: 5px;">AI Difficulty:</p>
@@ -150,7 +149,7 @@ module.exports = (req, res) => {
                 `).join(' | ')}
             </div>
             
-            <div style="margin-top:20px; font-size: 14px; line-height: 1.8;">
+            <div style="margin-top:15px; font-size: 16px; line-height: 1.8;">
                 <p style="margin-bottom: 5px; font-weight: bold;">Restart Game:</p>
                 <a href="?diff=${diff}&color=w" style="color: #0066cc;">[ Play as White ]</a><br>
                 <a href="?diff=${diff}&color=b" style="color: #0066cc;">[ Play as Black ]</a>
