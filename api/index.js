@@ -1,21 +1,19 @@
 const jsChessEngine = require('js-chess-engine');
 
-// We are completely ditching text. 
-// These pull tiny, pre-compressed PNGs of classic chess pieces.
 const getPieceImg = (code) => {
     const urls = {
-        'K': '4/42/Chess_klt45.svg/32px-Chess_klt45.svg.png', // White King
-        'Q': '1/15/Chess_qlt45.svg/32px-Chess_qlt45.svg.png', // White Queen
-        'R': '7/72/Chess_rlt45.svg/32px-Chess_rlt45.svg.png', // White Rook
-        'B': 'b/b1/Chess_blt45.svg/32px-Chess_blt45.svg.png', // White Bishop
-        'N': '7/70/Chess_nlt45.svg/32px-Chess_nlt45.svg.png', // White Knight
-        'P': '4/45/Chess_plt45.svg/32px-Chess_plt45.svg.png', // White Pawn
-        'k': 'f/f0/Chess_kdt45.svg/32px-Chess_kdt45.svg.png', // Black King
-        'q': '4/47/Chess_qdt45.svg/32px-Chess_qdt45.svg.png', // Black Queen
-        'r': 'f/ff/Chess_rdt45.svg/32px-Chess_rdt45.svg.png', // Black Rook
-        'b': '9/98/Chess_bdt45.svg/32px-Chess_bdt45.svg.png', // Black Bishop
-        'n': 'e/ef/Chess_ndt45.svg/32px-Chess_ndt45.svg.png', // Black Knight
-        'p': 'c/c7/Chess_pdt45.svg/32px-Chess_pdt45.svg.png'  // Black Pawn
+        'K': '4/42/Chess_klt45.svg/32px-Chess_klt45.svg.png', 
+        'Q': '1/15/Chess_qlt45.svg/32px-Chess_qlt45.svg.png', 
+        'R': '7/72/Chess_rlt45.svg/32px-Chess_rlt45.svg.png', 
+        'B': 'b/b1/Chess_blt45.svg/32px-Chess_blt45.svg.png', 
+        'N': '7/70/Chess_nlt45.svg/32px-Chess_nlt45.svg.png', 
+        'P': '4/45/Chess_plt45.svg/32px-Chess_plt45.svg.png', 
+        'k': 'f/f0/Chess_kdt45.svg/32px-Chess_kdt45.svg.png', 
+        'q': '4/47/Chess_qdt45.svg/32px-Chess_qdt45.svg.png', 
+        'r': 'f/ff/Chess_rdt45.svg/32px-Chess_rdt45.svg.png', 
+        'b': '9/98/Chess_bdt45.svg/32px-Chess_bdt45.svg.png', 
+        'n': 'e/ef/Chess_ndt45.svg/32px-Chess_ndt45.svg.png', 
+        'p': 'c/c7/Chess_pdt45.svg/32px-Chess_pdt45.svg.png'  
     };
     if (!urls[code]) return '&nbsp;&nbsp;';
     return `<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/${urls[code]}" width="24" height="24" border="0" style="display:block; margin:auto; border:none; outline:none;" alt="${code}">`;
@@ -25,10 +23,7 @@ module.exports = (req, res) => {
     let { fen, selected, move, diff } = req.query;
     diff = parseInt(diff) || 1;
 
-    // Decode Opera Mini's safe URLs back to spaces
-    if (fen) {
-        fen = fen.replace(/_/g, ' ');
-    }
+    if (fen) fen = fen.replace(/_/g, ' ');
 
     let game;
     let message = "Your turn (White).";
@@ -37,20 +32,37 @@ module.exports = (req, res) => {
         game = new jsChessEngine.Game(fen || undefined);
     } catch (e) {
         game = new jsChessEngine.Game();
-        message = "Game reset due to corrupted state.";
+        message = "Game reset due to corrupted FEN.";
     }
 
     if (move) {
-        const [from, to] = move.split('-');
+        let [from, to] = move.split('-');
+        // Bulletproof coordinate parsing for dumbphones
+        from = from.toUpperCase();
+        to = to.toUpperCase();
+        
+        let moveSuccessful = false;
+
+        // Block 1: The Player's Move
         try {
             game.move(from, to);
-            
+            moveSuccessful = true;
+            selected = null;
+        } catch (e) {
+            message = "Invalid player move (" + from + "-" + to + "): " + e.message;
+            selected = null;
+        }
+
+        // Block 2: The AI's Move (Only runs if player move was valid)
+        if (moveSuccessful) {
             const state = game.exportJson();
             if (!state.isFinished) {
-                game.ai(diff);
+                try {
+                    game.aiMove(diff); // <-- THE FIX
+                } catch (aiError) {
+                    message = "AI Error: " + aiError.message;
+                }
             }
-            
-            selected = null;
             
             const newState = game.exportJson();
             if (newState.isFinished) {
@@ -58,19 +70,16 @@ module.exports = (req, res) => {
             } else if (newState.check) {
                 message = "Check!";
             }
-        } catch (e) {
-            message = "Invalid move (" + from + "-" + to + "): " + e.message;
-            selected = null;
         }
     }
 
-    // Encode spaces to underscores for Opera Mini URL safety
     const safeFen = game.exportFEN().replace(/ /g, '_');
     const gameState = game.exportJson();
     const board = gameState.pieces;
 
     let validMoves = [];
     if (selected) {
+        selected = selected.toUpperCase();
         const allLegalMoves = game.moves();
         validMoves = allLegalMoves[selected] || [];
     }
@@ -87,17 +96,15 @@ module.exports = (req, res) => {
             let isDarkSquare = (fileCode + rank) % 2 === 0;
             let bgColor = isDarkSquare ? '#D18B47' : '#FFCE9E';
             
-            if (selected === square) bgColor = '#FFED4A'; // Yellow highlight
-            if (validMoves.includes(square)) bgColor = '#7BDE7B'; // Green valid move
+            if (selected === square) bgColor = '#FFED4A'; 
+            if (validMoves.includes(square)) bgColor = '#7BDE7B'; 
 
             let cellContent = piece ? getPieceImg(piece) : '';
             
             if (validMoves.includes(square)) {
-                // The target square is empty or has an enemy piece
                 let targetImg = piece ? getPieceImg(piece) : '<div style="width:12px; height:12px; background:rgba(0,0,0,0.3); border-radius:50%; margin:auto;"></div>';
                 cellContent = `<a href="?fen=${safeFen}&move=${selected}-${square}&diff=${diff}" style="display:block; width:100%; height:100%; text-decoration:none;">${targetImg}</a>`;
             } else if (piece && piece === piece.toUpperCase()) {
-                // Selectable White piece
                 cellContent = `<a href="?fen=${safeFen}&selected=${square}&diff=${diff}" style="display:block; width:100%; height:100%; text-decoration:none;">${getPieceImg(piece)}</a>`;
             }
 
