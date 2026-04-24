@@ -13,30 +13,35 @@ const getPieceImg = (code) => {
 };
 
 module.exports = (req, res) => {
-    let { fen, selected, move, diff } = req.query;
+    let { fen, selected, move, diff, color } = req.query;
     diff = parseInt(diff) || 1;
+    color = color === 'b' ? 'b' : 'w'; // Default to White
 
     if (fen) fen = fen.replace(/_/g, ' ');
 
     let game;
-    let message = "Your turn (White).";
+    let message = `Your turn (${color === 'w' ? 'White' : 'Black'}).`;
 
     try {
         game = new jsChessEngine.Game(fen || undefined);
+        
+        // If it's a brand new game and the player chose Black, the AI moves first
+        if (!fen && color === 'b') {
+            game.aiMove(diff);
+        }
     } catch (e) {
         game = new jsChessEngine.Game();
         message = "Game reset due to corrupted FEN.";
+        if (color === 'b') game.aiMove(diff); // Ensure AI moves first on a reset to Black
     }
 
     if (move) {
         let [from, to] = move.split('-');
-        // Bulletproof coordinate parsing for dumbphones
         from = from.toUpperCase();
         to = to.toUpperCase();
         
         let moveSuccessful = false;
 
-        // Block 1: The Player's Move
         try {
             game.move(from, to);
             moveSuccessful = true;
@@ -46,12 +51,11 @@ module.exports = (req, res) => {
             selected = null;
         }
 
-        // Block 2: The AI's Move (Only runs if player move was valid)
         if (moveSuccessful) {
             const state = game.exportJson();
             if (!state.isFinished) {
                 try {
-                    game.aiMove(diff); // <-- THE FIX
+                    game.aiMove(diff); 
                 } catch (aiError) {
                     message = "AI Error: " + aiError.message;
                 }
@@ -79,9 +83,13 @@ module.exports = (req, res) => {
 
     let htmlBoard = '<table style="border-collapse: collapse; margin: 10px auto; border: 2px solid #333;">';
     
-    for (let rank = 8; rank >= 1; rank--) {
+    // Flip the board rendering based on player color
+    const ranks = color === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
+    const files = color === 'w' ? [65, 66, 67, 68, 69, 70, 71, 72] : [72, 71, 70, 69, 68, 67, 66, 65];
+
+    for (let rank of ranks) {
         htmlBoard += '<tr>';
-        for (let fileCode = 65; fileCode <= 72; fileCode++) {
+        for (let fileCode of files) {
             const file = String.fromCharCode(fileCode);
             const square = `${file}${rank}`;
             const piece = board[square];
@@ -94,11 +102,14 @@ module.exports = (req, res) => {
 
             let cellContent = piece ? getPieceImg(piece) : '';
             
+            // Check if the piece belongs to the current player
+            const isPlayerPiece = piece && (color === 'w' ? piece === piece.toUpperCase() : piece === piece.toLowerCase());
+            
             if (validMoves.includes(square)) {
                 let targetImg = piece ? getPieceImg(piece) : '<div style="width:12px; height:12px; background:rgba(0,0,0,0.3); border-radius:50%; margin:auto;"></div>';
-                cellContent = `<a href="?fen=${safeFen}&move=${selected}-${square}&diff=${diff}" style="display:block; width:100%; height:100%; text-decoration:none;">${targetImg}</a>`;
-            } else if (piece && piece === piece.toUpperCase()) {
-                cellContent = `<a href="?fen=${safeFen}&selected=${square}&diff=${diff}" style="display:block; width:100%; height:100%; text-decoration:none;">${getPieceImg(piece)}</a>`;
+                cellContent = `<a href="?fen=${safeFen}&move=${selected}-${square}&diff=${diff}&color=${color}" style="display:block; width:100%; height:100%; text-decoration:none;">${targetImg}</a>`;
+            } else if (isPlayerPiece) {
+                cellContent = `<a href="?fen=${safeFen}&selected=${square}&diff=${diff}&color=${color}" style="display:block; width:100%; height:100%; text-decoration:none;">${getPieceImg(piece)}</a>`;
             }
 
             htmlBoard += `<td style="width: 32px; height: 32px; padding: 0; text-align: center; vertical-align: middle; background-color: ${bgColor}; border: 1px solid #666;">${cellContent}</td>`;
@@ -130,18 +141,20 @@ module.exports = (req, res) => {
             
             ${htmlBoard}
 
-            ${selected ? `<p><a href="?fen=${safeFen}&diff=${diff}" style="color:red;">[ Cancel Selection ]</a></p>` : '<p>&nbsp;</p>'}
+            ${selected ? `<p><a href="?fen=${safeFen}&diff=${diff}&color=${color}" style="color:red;">[ Cancel Selection ]</a></p>` : '<p>&nbsp;</p>'}
 
             <div class="diff-controls">
                 <p style="margin-bottom: 5px;">AI Difficulty:</p>
                 ${[0, 1, 2, 3, 4].map(level => `
-                    <a href="?fen=${safeFen}&diff=${level}" class="${level === diff ? 'active' : ''}">Lvl ${level}</a>
+                    <a href="?fen=${safeFen}&diff=${level}&color=${color}" class="${level === diff ? 'active' : ''}">Lvl ${level}</a>
                 `).join(' | ')}
             </div>
             
-            <p style="margin-top:20px; font-size: 14px;">
-                <a href="?diff=${diff}" style="color: #c00;">[ Restart Game ]</a>
-            </p>
+            <div style="margin-top:20px; font-size: 14px; line-height: 1.8;">
+                <p style="margin-bottom: 5px; font-weight: bold;">Restart Game:</p>
+                <a href="?diff=${diff}&color=w" style="color: #0066cc;">[ Play as White ]</a><br>
+                <a href="?diff=${diff}&color=b" style="color: #0066cc;">[ Play as Black ]</a>
+            </div>
         </body>
         </html>
     `);
