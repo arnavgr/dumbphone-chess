@@ -1,0 +1,12 @@
+{
+  "name": "dumbphone-chess",
+  "version": "1.0.0",
+  "description": "Chess compatible with dumbphone browsers",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "js-chess-engine": "^1.0.2"
+  }
+}
