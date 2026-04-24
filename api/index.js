@@ -1,22 +1,15 @@
 const jsChessEngine = require('js-chess-engine');
 
+// Look for local images in the public/images folder
 const getPieceImg = (code) => {
-    const urls = {
-        'K': '4/42/Chess_klt45.svg/32px-Chess_klt45.svg.png', 
-        'Q': '1/15/Chess_qlt45.svg/32px-Chess_qlt45.svg.png', 
-        'R': '7/72/Chess_rlt45.svg/32px-Chess_rlt45.svg.png', 
-        'B': 'b/b1/Chess_blt45.svg/32px-Chess_blt45.svg.png', 
-        'N': '7/70/Chess_nlt45.svg/32px-Chess_nlt45.svg.png', 
-        'P': '4/45/Chess_plt45.svg/32px-Chess_plt45.svg.png', 
-        'k': 'f/f0/Chess_kdt45.svg/32px-Chess_kdt45.svg.png', 
-        'q': '4/47/Chess_qdt45.svg/32px-Chess_qdt45.svg.png', 
-        'r': 'f/ff/Chess_rdt45.svg/32px-Chess_rdt45.svg.png', 
-        'b': '9/98/Chess_bdt45.svg/32px-Chess_bdt45.svg.png', 
-        'n': 'e/ef/Chess_ndt45.svg/32px-Chess_ndt45.svg.png', 
-        'p': 'c/c7/Chess_pdt45.svg/32px-Chess_pdt45.svg.png'  
+    const filenames = {
+        'K': 'wK.png', 'Q': 'wQ.png', 'R': 'wR.png', 'B': 'wB.png', 'N': 'wN.png', 'P': 'wP.png', 
+        'k': 'bK.png', 'q': 'bQ.png', 'r': 'bR.png', 'b': 'bB.png', 'n': 'bN.png', 'p': 'bP.png'  
     };
-    if (!urls[code]) return '&nbsp;&nbsp;';
-    return `<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/${urls[code]}" width="24" height="24" border="0" style="display:block; margin:auto; border:none; outline:none;" alt="${code}">`;
+    if (!filenames[code]) return '&nbsp;&nbsp;';
+    
+    // We use an absolute path so Opera Mini doesn't get confused during proxy compression
+    return `<img src="/images/${filenames[code]}" width="24" height="24" border="0" style="display:block; margin:auto; border:none; outline:none;" alt="${code}">`;
 };
 
 module.exports = (req, res) => {
