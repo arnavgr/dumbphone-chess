@@ -1,0 +1,16 @@
+# Cloudflare Pages + Workers configuration
+# Deploy with: npx wrangler pages deploy public --project-name=opera-chess
+# Or connect your Git repo in the Cloudflare dashboard.
+
+name = "opera-chess"
+compatibility_date = "2024-09-23"
+
+# Pages serves static files from /public automatically.
+# The /functions directory is picked up automatically by Pages —
+# functions/index.js maps to the root route "/".
+
+[build]
+# Tell Pages how to build the project before deploying.
+command = "npm install"
+# Static assets to serve (your chess piece images live here)
+destination = "public"
