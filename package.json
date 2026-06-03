@@ -1,6 +1,0 @@
-{
-  "name": "dumbphone-chess",
-  "version": "1.0.0",
-  "description": "Chess compatible with dumbphone browsers (Opera Mini, Nokia OEM, etc.)",
-  "private": true,
-}
