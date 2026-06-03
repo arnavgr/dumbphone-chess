@@ -1,6 +1,6 @@
 // Cloudflare Pages Function
 // Serves at the root path, replacing the Vercel api/index.js + vercel.json rewrite
-import { Game } from './js-chess-engine.js';
+import { Game } from '../js-chess-engine.js';
 
 // -------------------------------------------------------------------
 // Helpers
