@@ -23,6 +23,7 @@ const buildPage = (params) => {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <title>Dumbphone Chess</title>
     <style>
         body { font-family: sans-serif; text-align: center; background: #eee; margin: 0; padding: 5px; }
@@ -67,13 +68,20 @@ export async function onRequest(context) {
     const url = new URL(context.request.url);
     const q = url.searchParams;
 
-    let fen    = q.get('fen')      || null;
+    let fen      = q.get('fen')      || null;
     let selected = q.get('selected') || null;
     const moveParam = q.get('move')  || null;
-    let diff   = parseInt(q.get('diff')) || 1;
-    let color  = q.get('color') === 'b' ? 'b' : 'w';
+    let color    = q.get('color') === 'b' ? 'b' : 'w';
+    
+    // CPU Hardening: Clamp difficulty to prevent malicious AI depth execution
+    let diff = parseInt(q.get('diff'));
+    if (isNaN(diff) || diff < 0) {
+        diff = 1;
+    } else if (diff > 4) {
+        diff = 4; 
+    }
 
-    // Vercel used _ for spaces in FEN (spaces break URL params on some dumbphones)
+    // Vercel used _ for spaces in FEN (spaces break URL params on some mobile browsers)
     if (fen) fen = fen.replace(/_/g, ' ');
 
     let game;
@@ -96,8 +104,7 @@ export async function onRequest(context) {
     // ------------------------------------------------------------------
     // Apply player move (if any) then let AI respond
     // Note: Cloudflare Workers terminate as soon as we return a Response,
-    // so there is NO background execution after res.send() — unlike
-    // Vercel's Node.js serverless which could keep the process alive.
+    // so there is NO background execution after res.send()
     // ------------------------------------------------------------------
     if (moveParam) {
         let [from, to] = moveParam.split('-');
